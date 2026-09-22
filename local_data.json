@@ -1,0 +1,41 @@
+{
+  "user_token": "local_user_6868",
+  "session_signing_token": "local_session_token",
+  "remain_turn": 6,
+  "daily_high_score": 42,
+  "name": "Local Player",
+  "email": "player@localhost.dev",
+  "phone": "0988888888",
+  "leaderboard": [
+    {
+      "email": "player@localhost.dev",
+      "score": 42,
+      "is_me": true,
+      "has_won_daily": false,
+      "won_date": ""
+    },
+    {
+      "email": "hoangmai***@gmail.com",
+      "score": 30,
+      "is_me": false,
+      "has_won_daily": false,
+      "won_date": ""
+    },
+    {
+      "email": "trungthu***@pavietnam.vn",
+      "score": 25,
+      "is_me": false,
+      "has_won_daily": false,
+      "won_date": ""
+    }
+  ],
+  "winners": [
+    {
+      "date": "22/09/2026",
+      "email": "nguyenvana***@gmail.com",
+      "score": 52,
+      "gift": "Voucher Tên Miền PA",
+      "is_grand": true
+    }
+  ]
+}

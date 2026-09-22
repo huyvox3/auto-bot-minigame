@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Bot - Xếp Bánh Đón Trăng",
+  "version": "1.0.0",
+  "description": "Tự động chơi minigame Xếp Bánh Đón Trăng đạt 125 tầng trong 30 phút",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://www.pavietnam.vn/*",
+        "https://pavietnam.vn/*"
+      ],
+      "js": ["content.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    }
+  ]
+}
