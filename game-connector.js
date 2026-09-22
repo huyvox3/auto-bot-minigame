@@ -452,6 +452,13 @@
     let blocks = [], cur = null, falls = [], score = 0, speed = SPD0, cam = 0, running = false, raf = null;
     let flashT = 0, flashMsg = '', winds = [], puff = [], clouds = [];
     let mX = 0, mY = 0, mIn = false, press = 0, rip = [];
+    window.__MINIGAME_CORE__ = {
+        getCur: () => cur,
+        getPrev: () => blocks[blocks.length - 1],
+        getScore: () => score,
+        getSpeed: () => speed,
+        getRunning: () => running
+    };
 
     function baseSpeed() { return SPD0 + Math.floor(score / 10) * ZONE_UP; }
 

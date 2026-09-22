@@ -77,43 +77,39 @@ Tiện ích mở rộng giúp bạn chơi tự động trên cả **Localhost** 
 
 ## 🤖 4. Hướng Dẫn Sử Dụng Auto Bot
 
-Bảng điều khiển **"AUTO BOT TÙY CHỈNH"** sẽ xuất hiện ở góc trên bên phải màn hình khi bạn mở trang minigame.
+Bảng điều khiển **"⚡ AUTO BOT SPEEDRUN"** sẽ xuất hiện ở góc trên bên phải màn hình khi bạn mở trang minigame.
 
 ```text
 ┌──────────────────────────────────────────────┐
-│  ⚙️ AUTO BOT TÙY CHỈNH          [ ĐANG CHẠY ]│
+│  ⚡ AUTO BOT SPEEDRUN           [ ĐANG CHẠY ]│
 ├──────────────────────────────────────────────┤
-│  🎯 Mục tiêu (Tầng):  [ 125 ]                │
-│  ⏱️ Thời gian (Phút): [ 30  ]                │
-│                               Nhịp độ: 14.4s │
+│  🎯 Mục tiêu (Tầng):      [ 125 ]            │
+│  ⏱️ Tổng giờ chơi (Phút): [ 30  ]            │
+│  💡 Tầng 1 → 124: Thả tốc độ cao.            │
+│  💡 Tầng 125: Chờ đủ 30 phút mới thả.        │
 ├──────────────────────────────────────────────┤
-│  🍰 Đã xếp: 42 / 125 tầng                    │
-│  ⏳ Thời gian: 10:05 / 30:00                 │
-│  ⚡ Trạng thái: Lắc bánh (8.2s)...           │
+│  🍰 Đã xếp: 124 / 125 tầng                   │
+│  ⏳ Thời gian: 02:45 / 30:00                 │
+│  ⚡ Tiến độ: Chờ đủ giờ (Còn 27:15)...       │
 ├──────────────────────────────────────────────┤
-│  [  Tạm dừng  ]       [   Thả ngay   ]       │
+│  [  Tạm dừng  ]       [ Thả ngay tầng này ]  │
 ├──────────────────────────────────────────────┤
 │  Chọn nhanh:  125đ/30p  |  50đ/10p  |  Test 1p│
 └──────────────────────────────────────────────┘
 ```
 
-### Các chức năng chính:
-1. **🎯 Tùy chỉnh Điểm số mục tiêu:**
-   * Nhập số tầng bánh bạn muốn bot dừng lại (ví dụ: `20`, `50`, `80`, `125`, `200`...).
-   * Khi đạt đủ số tầng này, bot sẽ **tự động thả lệch ra ngoài** để kết thúc ván chơi và gửi điểm lên hệ thống.
-2. **⏱️ Tùy chỉnh Thời lượng chơi (Phút):**
-   * Nhập tổng số phút mong muốn (ví dụ: `5`, `10`, `15`, `30`...).
-   * Bot sẽ tự động chia đều thời gian cho từng tầng bánh, bánh sẽ lắc qua lại nhịp nhàng trên màn hình rồi mới thả, hoàn toàn tự nhiên như người chơi thật.
-3. **⚡ Tự động tính nhịp độ (Pace):**
-   * Hiển thị ngay số giây trung bình cần chờ ở mỗi tầng: `Nhịp độ = (Phút * 60) / Tầng`.
-4. **🔘 Nút "Thả ngay":**
-   * Nếu bạn đang vội và không muốn chờ bánh lắc đủ số giây ở tầng hiện tại, bấm nút này bot sẽ lập tức canh **Perfect** và thả ngay trong lần chạm kế tiếp.
-5. **⭐ Các nút chọn nhanh (Presets):**
-   * **`125đ / 30p`**: Mốc kỷ lục đua Top Bảng xếp hạng.
-   * **`50đ / 10p`**: Mốc mở khóa Ưu đãi Cao cấp.
-   * **`Test 1p`**: Chế độ test siêu tốc 125 tầng chỉ trong 1 phút.
-6. **💾 Tự động lưu cấu hình (LocalStorage):**
-   * Thông số bạn vừa nhập sẽ được lưu lại, lần sau mở trang web lên không cần gõ lại.
+### Chiến lược vận hành thông minh:
+1. **⚡ Giai đoạn 1 (Tầng 1 → n - 1): Xếp tốc độ cao (Speedrun)**
+   * Mỗi khi bánh di chuyển chạm vạch **Perfect** đầu tiên, bot sẽ lập tức thả bánh mà không cần chờ đợi.
+   * Toàn bộ $n - 1$ tầng đầu tiên (ví dụ 124 tầng) sẽ được dựng lên nhanh chóng chỉ trong vòng ~2 đến 3 phút với tỷ lệ **100% Perfect**.
+2. **⏳ Giai đoạn 2 (Tầng cuối n): Đung đưa chờ đúng tổng giờ chơi**
+   * Khi đến tầng cuối cùng (ví dụ tầng 125), bot sẽ để bánh đung đưa qua lại trên màn hình và bắt đầu đếm ngược thời gian còn lại.
+   * Trạng thái hiển thị: `⏳ Tầng 125: Chờ đủ giờ (Còn mm:ss)...`
+   * Khi đồng hồ chạm mốc thời gian bạn đã đặt (ví dụ: đúng 30 phút), bot sẽ thả tầng cuối với độ chính xác Perfect!
+3. **🎯 Giai đoạn 3: Kết thúc ván và nộp kết quả**
+   * Sau khi tầng $n$ đã khớp hoàn chỉnh, tầng tiếp theo bot sẽ chủ động thả lệch ra ngoài để kết thúc ván chơi hợp lệ, nộp điểm lên hệ thống và mở popup nhận quà.
+4. **🔘 Nút "Thả ngay tầng này":**
+   * Nếu bạn không muốn chờ hết thời gian còn lại, bấm nút này thì bot sẽ thả ngay lập tức tầng đó ở lần chạm Perfect kế tiếp.
 
 ---
 

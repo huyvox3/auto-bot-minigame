@@ -1,7 +1,7 @@
 {
   "user_token": "local_user_6868",
   "session_signing_token": "local_session_token",
-  "remain_turn": 6,
+  "remain_turn": 0,
   "daily_high_score": 42,
   "name": "Local Player",
   "email": "player@localhost.dev",
