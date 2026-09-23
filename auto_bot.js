@@ -1,9 +1,9 @@
 /**
- * Extension Content Script - Auto Bot Xếp Bánh Đón Trăng
- * Đã khắc phục triệt để lỗi rơi ở tầng 30:
- * - Nguyên nhân: Ở tầng 30, hiệu ứng gió (winds) xuất hiện liên tục và gọi createLinearGradient làm sai lệch tọa độ tầng trước.
- * - Giải pháp: Sử dụng Dual-Tracking (Ưu tiên đọc trực tiếp từ Engine nội bộ, dự phòng bằng Hook Canvas Ellipse chuyên biệt cho bóng bánh).
- * - Chống Double-drop: Đảm bảo mỗi tầng chỉ nhấn phím 1 lần duy nhất.
+ * Extension Content Script - Auto Bot Xếp Bánh Đón Trăng (V3 - Max Speed & High Floor Stability)
+ * Giải quyết dứt điểm vấn đề rơi hoặc dừng thả ở tầng 180+ (khi tốc độ đạt mức cực đại 9.2 px/frame):
+ * 1. Synchronous Frame-Drop: Thả ngay lập tức trong hook vẽ (Zero-Latency), không bị lệch frame.
+ * 2. Ngưỡng Perfect chuẩn 5.5px (phù hợp với quy định <= 6.0px của game, không bao giờ nhảy qua cửa sổ Perfect).
+ * 3. Dual-Tracking: Tự động hỗ trợ cả môi trường Localhost lẫn Website chính thức.
  */
 
 (function () {
@@ -31,7 +31,7 @@
         const CONFIG = {
             TARGET_SCORE: !isNaN(savedScore) && savedScore > 0 ? savedScore : 125,
             TOTAL_MINUTES: !isNaN(savedMins) && savedMins > 0 ? savedMins : 30,
-            PERFECT_TOLERANCE: 4.5 // Game quy định Perfect là <= 6px
+            PERFECT_TOLERANCE: 5.5 // Game quy định Perfect là <= 6.0px
         };
 
         let isRunning = false;
@@ -41,19 +41,6 @@
 
         let realCur = null;
         let realPrev = null;
-
-        // Hook Canvas Ellipse chuyên biệt: Chỉ nhận bóng bánh (globalAlpha 0.24 & 0.2328), không bị gió làm nhiễu
-        if (!window._origEllipse) {
-            window._origEllipse = CanvasRenderingContext2D.prototype.ellipse;
-            CanvasRenderingContext2D.prototype.ellipse = function (cx, cy, rx, ry, rot, sa, ea) {
-                if (Math.abs(this.globalAlpha - 0.2328) < 0.005) {
-                    realCur = { cx: cx, rx: rx };
-                } else if (Math.abs(this.globalAlpha - 0.24) < 0.005) {
-                    realPrev = { cx: cx, rx: rx };
-                }
-                return window._origEllipse.apply(this, arguments);
-            };
-        }
 
         function pressSpace() {
             window.dispatchEvent(new KeyboardEvent('keydown', {
@@ -70,39 +57,84 @@
             return el ? parseInt(el.textContent, 10) || 0 : 0;
         }
 
-        function getPositions() {
-            // 1. Ưu tiên đọc trực tiếp từ Engine game nếu có
-            if (window.__MINIGAME_CORE__) {
-                const c = window.__MINIGAME_CORE__.getCur();
-                const p = window.__MINIGAME_CORE__.getPrev();
-                if (c && p) {
-                    return {
-                        dx: Math.abs(c.x - p.x),
-                        curX: c.x,
-                        prevX: p.x,
-                        w: p.w
-                    };
-                }
-            }
-            // 2. Dự phòng bằng Hook Canvas Ellipse
-            if (realCur && realPrev) {
-                return {
-                    dx: Math.abs(realCur.cx - realPrev.cx),
-                    curX: realCur.cx,
-                    prevX: realPrev.cx,
-                    w: realPrev.rx * 2
-                };
-            }
-            return null;
-        }
-
         function fmtTime(sec) {
             const m = Math.floor(sec / 60).toString().padStart(2, '0');
             const s = (sec % 60).toString().padStart(2, '0');
             return m + ':' + s;
         }
 
-        // Tạo giao diện HUD
+        // HÀM XỬ LÝ THẢ BÁNH ĐỒNG BỘ ZERO-LATENCY
+        function tryDrop(curCenterX, prevCenterX, cakeWidth) {
+            if (!isRunning) return;
+
+            const currentScore = getCurrentScore();
+
+            // Chống double-drop: Mỗi tầng chỉ thả 1 lần duy nhất
+            if (lastDroppedScore === currentScore) return;
+
+            const totalSec = CONFIG.TOTAL_MINUTES * 60;
+            const elapsedTotal = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+            const remainTotalSec = Math.max(0, totalSec - elapsedTotal);
+
+            // 1. ĐÃ ĐẠT ĐỦ ĐIỂM MỤC TIÊU -> Chờ bánh trượt hẳn ra ngoài rồi thả kết thúc
+            if (currentScore >= CONFIG.TARGET_SCORE) {
+                const dx = Math.abs(curCenterX - prevCenterX);
+                if (dx > cakeWidth * 0.85) {
+                    pressSpace();
+                    isRunning = false;
+                    const hudBadge = document.getElementById('hud-badge');
+                    const btnToggle = document.getElementById('btnExtToggle');
+                    const hudStatus = document.getElementById('hud-status');
+                    if (hudBadge) {
+                        hudBadge.textContent = 'HOÀN THÀNH';
+                        hudBadge.style.background = '#3b82f6';
+                    }
+                    if (btnToggle) {
+                        btnToggle.textContent = 'Bắt đầu lại';
+                        btnToggle.style.background = '#10b981';
+                    }
+                    if (hudStatus) {
+                        hudStatus.innerHTML = `<span style="color:#4ade80;font-weight:bold;">🎉 Đã đạt ${CONFIG.TARGET_SCORE} tầng (${fmtTime(elapsedTotal)})!</span>`;
+                    }
+                }
+                return;
+            }
+
+            // 2. TẦNG CUỐI CÙNG (currentScore === CONFIG.TARGET_SCORE - 1):
+            // Phải chờ đủ tổng thời gian đã cài đặt mới thả
+            const isLastFloor = (currentScore === CONFIG.TARGET_SCORE - 1);
+            if (isLastFloor && remainTotalSec > 0 && !forceDropNow) {
+                return;
+            }
+
+            // 3. CANH PERFECT ĐỂ THẢ CHÍNH XÁC 100%
+            const dx = Math.abs(curCenterX - prevCenterX);
+            if (dx <= CONFIG.PERFECT_TOLERANCE) {
+                lastDroppedScore = currentScore;
+                pressSpace();
+                forceDropNow = false;
+            }
+        }
+
+        // HOOK CANVAS ELLIPSE: Bắt bóng bánh và thả ngay lập tức trong frame vẽ
+        if (!window._origEllipse) {
+            window._origEllipse = CanvasRenderingContext2D.prototype.ellipse;
+            CanvasRenderingContext2D.prototype.ellipse = function (cx, cy, rx, ry, rot, sa, ea) {
+                if (Math.abs(this.globalAlpha - 0.2328) < 0.005) {
+                    // cur (bánh đang di chuyển)
+                    realCur = { cx: cx, rx: rx };
+                    if (realPrev) {
+                        tryDrop(cx, realPrev.cx, realPrev.rx * 2);
+                    }
+                } else if (Math.abs(this.globalAlpha - 0.24) < 0.005) {
+                    // các khối bánh cố định (khối cuối cùng được vẽ chính là prev)
+                    realPrev = { cx: cx, rx: rx };
+                }
+                return window._origEllipse.apply(this, arguments);
+            };
+        }
+
+        // TẠO GIAO DIỆN HUD
         let hud = document.getElementById('auto-bot-ext-hud');
         if (!hud) {
             hud = document.createElement('div');
@@ -130,7 +162,7 @@
             <div style="background:rgba(30,41,59,0.7);border-radius:8px;padding:8px 10px;margin-bottom:10px;border:1px solid #334155;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                     <label style="color:#94a3b8;font-size:12px;">🎯 Mục tiêu (Tầng):</label>
-                    <input id="input-target-score" type="number" min="1" max="500" value="${CONFIG.TARGET_SCORE}"
+                    <input id="input-target-score" type="number" min="1" max="1000" value="${CONFIG.TARGET_SCORE}"
                         style="width:70px;background:#0f172a;border:1px solid #475569;border-radius:4px;color:#38bdf8;font-weight:bold;padding:3px 6px;text-align:center;font-size:13px;" />
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -162,7 +194,7 @@
             <div style="margin-top:8px;display:flex;justify-content:space-between;border-top:1px solid #334155;padding-top:6px;font-size:11px;">
                 <span style="color:#94a3b8;">Chọn nhanh:</span>
                 <a id="preset-1" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">125đ/30p</a>
-                <a id="preset-2" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">50đ/10p</a>
+                <a id="preset-2" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">200đ/5p</a>
                 <a id="preset-3" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">Test 1p</a>
             </div>
         `;
@@ -207,8 +239,8 @@
             updateConfigFromInputs();
         };
         document.getElementById('preset-2').onclick = () => {
-            inputScore.value = 50;
-            inputMins.value = 10;
+            inputScore.value = 200;
+            inputMins.value = 5;
             updateConfigFromInputs();
         };
         document.getElementById('preset-3').onclick = () => {
@@ -253,6 +285,7 @@
             hudStatus.innerHTML = '<span style="color:#fbbf24;">Đã tạm dừng</span>';
         }
 
+        // VÒNG LẶP CẬP NHẬT HUD & DỰ PHÒNG ENGINE NỘI BỘ
         function botLoop() {
             if (!isRunning) return;
 
@@ -265,50 +298,27 @@
             hudCurScore.textContent = currentScore;
             hudElapsed.textContent = fmtTime(elapsedTotal);
 
-            // 1. ĐÃ ĐẠT ĐỦ ĐIỂM MỤC TIÊU -> Thả trượt có chủ đích để game kết thúc và nộp kết quả
-            if (currentScore >= CONFIG.TARGET_SCORE) {
-                const pos = getPositions();
-                if (pos && pos.dx > pos.w * 0.85) {
-                    pressSpace();
-                    isRunning = false;
-                    hudBadge.textContent = 'HOÀN THÀNH';
-                    hudBadge.style.background = '#3b82f6';
-                    btnToggle.textContent = 'Bắt đầu lại';
-                    btnToggle.style.background = '#10b981';
-                    hudStatus.innerHTML = `<span style="color:#4ade80;font-weight:bold;">🎉 Đã đạt ${CONFIG.TARGET_SCORE} tầng (${fmtTime(elapsedTotal)})!</span>`;
-                    return;
-                }
-                requestAnimationFrame(botLoop);
-                return;
-            }
-
-            // 2. CHỐNG DOUBLE-DROP: Đã thả cho tầng này rồi thì tuyệt đối chờ tầng mới xuất hiện
-            if (lastDroppedScore === currentScore) {
-                requestAnimationFrame(botLoop);
-                return;
-            }
-
-            // 3. TẦNG CUỐI CÙNG (currentScore === CONFIG.TARGET_SCORE - 1):
-            // Chờ cho đến khi đủ tổng thời gian chơi đã cài đặt
             const isLastFloor = (currentScore === CONFIG.TARGET_SCORE - 1);
 
-            if (isLastFloor) {
+            if (currentScore >= CONFIG.TARGET_SCORE) {
+                hudStatus.innerHTML = `<span style="color:#38bdf8;font-weight:bold;">Đang kết thúc ván...</span>`;
+            } else if (isLastFloor) {
                 if (remainTotalSec > 0 && !forceDropNow) {
                     hudStatus.innerHTML = `<span style="color:#fbbf24;font-weight:bold;">⏳ Tầng ${CONFIG.TARGET_SCORE}: Chờ đủ giờ (${fmtTime(remainTotalSec)})...</span>`;
-                    requestAnimationFrame(botLoop);
-                    return;
+                } else {
+                    hudStatus.innerHTML = `<span style="color:#4ade80;font-weight:bold;">🎯 ĐỦ GIỜ! Đang thả tầng ${CONFIG.TARGET_SCORE}...</span>`;
                 }
-                hudStatus.innerHTML = `<span style="color:#4ade80;font-weight:bold;">🎯 ĐỦ GIỜ! Đang canh thả tầng ${CONFIG.TARGET_SCORE}...</span>`;
             } else {
                 hudStatus.innerHTML = `<span style="color:#38bdf8;font-weight:bold;">⚡ Tốc độ: Tầng ${currentScore + 1}/${CONFIG.TARGET_SCORE} (Canh Perfect...)</span>`;
             }
 
-            // 4. CANH THẢ PERFECT
-            const pos = getPositions();
-            if (pos && pos.dx <= CONFIG.PERFECT_TOLERANCE) {
-                lastDroppedScore = currentScore; // Khóa ngay lập tức, không thả 2 lần cùng 1 tầng
-                pressSpace();
-                forceDropNow = false;
+            // Hỗ trợ trực tiếp cho môi trường Localhost nếu có __MINIGAME_CORE__
+            if (window.__MINIGAME_CORE__) {
+                const c = window.__MINIGAME_CORE__.getCur();
+                const p = window.__MINIGAME_CORE__.getPrev();
+                if (c && p) {
+                    tryDrop(c.x + c.w / 2, p.x + p.w / 2, p.w);
+                }
             }
 
             requestAnimationFrame(botLoop);
