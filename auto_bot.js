@@ -1,9 +1,9 @@
 /**
- * Extension Content Script - Auto Bot Xếp Bánh Đón Trăng (V4 - God Mode & Instant Jump)
- * Tính năng đặc biệt:
- * 1. 🛡️ GOD MODE (BẤT TỬ): Khóa 100% Perfect, không bao giờ thua dù bấm phím bất cứ lúc nào.
- * 2. 🚀 NHẢY TẦNG TỨC THÌ: Nhảy thẳng 1 phát lên tầng n - 1 (ví dụ 199/200 tầng) trong 0.01 giây.
- * 3. ☠️ CHỈ THUA KHI BẤM NÚT: Tầng cuối sẽ đung đưa chờ, chỉ kết thúc và nộp điểm khi người dùng bấm nút "Kết thúc & Nộp điểm".
+ * Extension Content Script - Auto Bot Xếp Bánh Đón Trăng (Turbo Fast-Stack cho Production & Local)
+ * Hoạt động hoàn hảo 100% trên cả trang web thật (Production) lẫn Localhost:
+ * 1. Turbo Fast-Stack: Tự động thả Perfect siêu tốc (mỗi 0.3s một tầng) leo thẳng lên tầng n - 1 mà không thể thua.
+ * 2. Tầng cuối n: Dừng lại đung đưa an toàn chờ người dùng xem đồng hồ hoặc bấm nút nộp.
+ * 3. Nút "☠️ Bấm để THUA & Nộp điểm": Canh chuẩn tầng cuối rồi chủ động thả lệch để nộp điểm hợp lệ lên máy chủ.
  */
 
 (function () {
@@ -31,23 +31,16 @@
         const CONFIG = {
             TARGET_SCORE: !isNaN(savedScore) && savedScore > 0 ? savedScore : 200,
             TOTAL_MINUTES: !isNaN(savedMins) && savedMins > 0 ? savedMins : 5,
-            GOD_MODE: true,
-            PERFECT_TOLERANCE: 5.5
+            PERFECT_TOLERANCE: 5.2 // Chuẩn Perfect của game là <= 6.0px
         };
 
         let isRunning = false;
+        let isFinishing = false;
         let startTime = 0;
         let lastDroppedScore = -1;
 
         let realCur = null;
         let realPrev = null;
-
-        // Bật God Mode cờ hệ thống
-        if (window.__MINIGAME_CORE__) {
-            window.__MINIGAME_CORE__.setGodMode(CONFIG.GOD_MODE);
-        } else {
-            window.__GOD_MODE_ACTIVE__ = CONFIG.GOD_MODE;
-        }
 
         function pressSpace() {
             window.dispatchEvent(new KeyboardEvent('keydown', {
@@ -70,74 +63,68 @@
             return m + ':' + s;
         }
 
-        // HÀM NHẢY THẲNG TỚI TẦNG N - 1
-        function jumpToFinalFloor() {
-            const target = CONFIG.TARGET_SCORE;
-            if (window.__MINIGAME_CORE__ && typeof window.__MINIGAME_CORE__.jumpToFloor === 'function') {
-                window.__MINIGAME_CORE__.jumpToFloor(target);
-            } else {
-                // Giả lập nhảy nhanh qua DOM nếu là trang ngoài
-                let curSc = getCurrentScore();
-                while (curSc < target - 1) {
-                    pressSpace();
-                    curSc++;
-                }
-            }
-            if (startTime === 0) startTime = Date.now();
-            isRunning = true;
-            renderStatus();
-        }
-
-        // HÀM CHỦ ĐỘNG THUA & NỘP ĐIỂM
+        // HÀM CHỦ ĐỘNG KẾT THÚC VÀ NỘP ĐIỂM
         function finishAndSubmitScore() {
-            const currentScore = getCurrentScore();
-            // Nếu chưa đặt tầng cuối thì hoàn tất tầng cuối trước
-            if (currentScore === CONFIG.TARGET_SCORE - 1) {
-                pressSpace();
+            isFinishing = true;
+            const hudStatus = document.getElementById('hud-status');
+            if (hudStatus) {
+                hudStatus.innerHTML = `<span style="color:#fbbf24;font-weight:bold;">Đang hoàn tất tầng cuối & nộp điểm...</span>`;
             }
-
-            // Gọi kết thúc ván
-            setTimeout(() => {
-                if (window.__MINIGAME_CORE__ && typeof window.__MINIGAME_CORE__.forceFinish === 'function') {
-                    window.__MINIGAME_CORE__.forceFinish();
-                } else {
-                    // Thả lệch có chủ đích
-                    pressSpace();
-                }
-                isRunning = false;
-                const hudBadge = document.getElementById('hud-badge');
-                if (hudBadge) {
-                    hudBadge.textContent = 'ĐÃ NỘP ĐIỂM';
-                    hudBadge.style.background = '#8b5cf6';
-                }
-                const hudStatus = document.getElementById('hud-status');
-                if (hudStatus) {
-                    hudStatus.innerHTML = `<span style="color:#a78bfa;font-weight:bold;">🎉 Đã kết thúc & nộp ${CONFIG.TARGET_SCORE} tầng!</span>`;
-                }
-            }, 350);
         }
 
-        // XỬ LÝ THẢ BÁNH TỰ ĐỘNG
+        // XỬ LÝ THẢ BÁNH TỰ ĐỘNG THEO TỪNG FRAME
         function tryDrop(curCenterX, prevCenterX, cakeWidth) {
             if (!isRunning) return;
 
             const currentScore = getCurrentScore();
             if (lastDroppedScore === currentScore) return;
 
-            // Nếu đã đạt hoặc vượt tầng cuối -> DỪNG KHÔNG TỰ THẢ NỮA, để người chơi bấm nút thua
-            if (currentScore >= CONFIG.TARGET_SCORE - 1) {
+            const dx = Math.abs(curCenterX - prevCenterX);
+
+            // GIAI ĐOẠN NỘP ĐIỂM KHI NGƯỜI DÙNG BẤM NÚT
+            if (isFinishing) {
+                // Nếu đang ở tầng n - 1: Phải thả Perfect để đạt đúng tầng n
+                if (currentScore < CONFIG.TARGET_SCORE) {
+                    if (dx <= CONFIG.PERFECT_TOLERANCE) {
+                        lastDroppedScore = currentScore;
+                        pressSpace();
+                    }
+                    return;
+                }
+
+                // Khi đã đạt đúng điểm mục tiêu: Thả trượt ra ngoài để game kết thúc hợp lệ
+                if (dx > cakeWidth * 0.8) {
+                    pressSpace();
+                    isRunning = false;
+                    isFinishing = false;
+                    const hudBadge = document.getElementById('hud-badge');
+                    if (hudBadge) {
+                        hudBadge.textContent = 'ĐÃ NỘP ĐIỂM';
+                        hudBadge.style.background = '#8b5cf6';
+                    }
+                    const hudStatus = document.getElementById('hud-status');
+                    if (hudStatus) {
+                        const elapsed = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+                        hudStatus.innerHTML = `<span style="color:#a78bfa;font-weight:bold;">🎉 Đã hoàn thành ${CONFIG.TARGET_SCORE} tầng (${fmtTime(elapsed)})!</span>`;
+                    }
+                }
                 return;
             }
 
-            // Ở các tầng thường, tự động thả Perfect ngay khi khớp
-            const dx = Math.abs(curCenterX - prevCenterX);
-            if (CONFIG.GOD_MODE || dx <= CONFIG.PERFECT_TOLERANCE) {
+            // GIAI ĐOẠN ĐANG LEO THÁP:
+            // Chỉ thả tự động từ tầng 0 đến n - 2. Tới tầng n - 1 thì DỪNG LẠI đung đưa an toàn!
+            if (currentScore >= CONFIG.TARGET_SCORE - 1) {
+                return; // Dừng lại ở tầng cuối, không thả nữa
+            }
+
+            // Canh chuẩn Perfect để thả (tuyệt đối không thả bừa)
+            if (dx <= CONFIG.PERFECT_TOLERANCE) {
                 lastDroppedScore = currentScore;
                 pressSpace();
             }
         }
 
-        // HOOK CANVAS ELLIPSE CHO BÁNH
+        // HOOK CANVAS ELLIPSE CHO BÁNH (Kháng gió và hiệu ứng nền)
         if (!window._origEllipse) {
             window._origEllipse = CanvasRenderingContext2D.prototype.ellipse;
             CanvasRenderingContext2D.prototype.ellipse = function (cx, cy, rx, ry, rot, sa, ea) {
@@ -172,9 +159,9 @@
 
         hud.innerHTML = `
             <div style="font-weight:bold;color:#c084fc;font-size:14px;margin-bottom:8px;border-bottom:1px solid #334155;padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-                <span>🛡️ GOD MODE (BẤT TỬ)</span>
-                <span id="hud-badge" style="font-size:11px;background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-weight:bold;">
-                    BẤT TỬ ON
+                <span>⚡ TURBO AUTO BOT (PROD & LOCAL)</span>
+                <span id="hud-badge" style="font-size:11px;background:#64748b;color:#fff;padding:2px 8px;border-radius:10px;font-weight:bold;">
+                    TẠM DỪNG
                 </span>
             </div>
 
@@ -185,19 +172,18 @@
                     <input id="input-target-score" type="number" min="1" max="1000" value="${CONFIG.TARGET_SCORE}"
                         style="width:75px;background:#0f172a;border:1px solid #64748b;border-radius:4px;color:#38bdf8;font-weight:bold;padding:3px 6px;text-align:center;font-size:13px;" />
                 </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;">
-                    <label style="color:#94a3b8;font-size:12px;">⏱️ Thời gian chơi (Phút):</label>
-                    <input id="input-total-mins" type="number" min="0.1" max="180" step="0.5" value="${CONFIG.TOTAL_MINUTES}"
-                        style="width:75px;background:#0f172a;border:1px solid #64748b;border-radius:4px;color:#fbbf24;font-weight:bold;padding:3px 6px;text-align:center;font-size:13px;" />
+                <div style="font-size:11px;color:#cbd5e1;line-height:1.4;">
+                    ⚡ Tầng 0 → <span id="hud-sub-target">${CONFIG.TARGET_SCORE - 1}</span>: Tự động xếp Perfect siêu tốc.<br>
+                    ⏳ Tầng <span id="hud-last-floor">${CONFIG.TARGET_SCORE}</span>: Tự dừng đung đưa chờ bạn nộp.
                 </div>
             </div>
 
-            <!-- NÚT TÍNH NĂNG GOD MODE -->
+            <!-- NÚT ĐIỀU KHIỂN CHÍNH -->
             <div style="margin-bottom:10px;display:flex;flex-direction:column;gap:6px;">
-                <button id="btnJumpFloor" style="background:linear-gradient(135deg, #8b5cf6, #6366f1);color:#fff;border:none;padding:9px 12px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow:0 4px 12px rgba(139,92,246,0.35);">
-                    🚀 Nhảy thẳng tới tầng ${CONFIG.TARGET_SCORE - 1}
+                <button id="btnExtToggle" style="background:linear-gradient(135deg, #10b981, #059669);color:#fff;border:none;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow:0 4px 12px rgba(16,185,129,0.35);">
+                    🚀 Bắt đầu Turbo Leo Tháp
                 </button>
-                <button id="btnSubmitScore" style="background:linear-gradient(135deg, #ef4444, #dc2626);color:#fff;border:none;padding:9px 12px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow:0 4px 12px rgba(239,68,68,0.35);">
+                <button id="btnSubmitScore" style="background:linear-gradient(135deg, #ef4444, #dc2626);color:#fff;border:none;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;box-shadow:0 4px 12px rgba(239,68,68,0.35);">
                     ☠️ Bấm để THUA & Nộp điểm
                 </button>
             </div>
@@ -205,79 +191,69 @@
             <!-- Thống kê trạng thái -->
             <div style="margin-bottom:10px;background:rgba(15,23,42,0.6);padding:6px 10px;border-radius:6px;border:1px solid #1e293b;">
                 <div>🍰 Đang ở tầng: <b id="hud-cur-score" style="color:#4ade80;font-size:16px;">0</b> / <span id="hud-max-score">${CONFIG.TARGET_SCORE}</span></div>
-                <div>⏳ Thời gian: <b id="hud-elapsed">00:00</b></div>
+                <div>⏳ Thời gian chơi: <b id="hud-elapsed">00:00</b></div>
                 <div style="margin-top:3px;">⚡ Trạng thái: <span id="hud-status" style="color:#c084fc;">Sẵn sàng</span></div>
             </div>
 
-            <!-- Nút phụ điều khiển -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                <button id="btnExtToggle" style="background:#10b981;color:#fff;border:none;padding:7px 10px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">
-                    Bắt đầu Auto
-                </button>
-                <button id="btnExtDropOne" style="background:#3b82f6;color:#fff;border:none;padding:7px 10px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">
-                    Thả 1 tầng
-                </button>
+            <!-- Nút chọn nhanh -->
+            <div style="display:flex;justify-content:space-between;border-top:1px solid #334155;padding-top:6px;font-size:11px;">
+                <span style="color:#94a3b8;">Chọn nhanh:</span>
+                <a id="preset-1" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">125 tầng</a>
+                <a id="preset-2" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">200 tầng</a>
+                <a id="preset-3" href="javascript:void(0)" style="color:#38bdf8;text-decoration:none;">50 tầng</a>
             </div>
         `;
 
         const inputScore = document.getElementById('input-target-score');
-        const inputMins = document.getElementById('input-total-mins');
-        const btnJump = document.getElementById('btnJumpFloor');
-        const btnSubmit = document.getElementById('btnSubmitScore');
         const btnToggle = document.getElementById('btnExtToggle');
-        const btnDropOne = document.getElementById('btnExtDropOne');
+        const btnSubmit = document.getElementById('btnSubmitScore');
+        const hudBadge = document.getElementById('hud-badge');
         const hudCurScore = document.getElementById('hud-cur-score');
         const hudMaxScore = document.getElementById('hud-max-score');
         const hudElapsed = document.getElementById('hud-elapsed');
         const hudStatus = document.getElementById('hud-status');
+        const hudSubTarget = document.getElementById('hud-sub-target');
+        const hudLastFloor = document.getElementById('hud-last-floor');
 
         function updateConfigFromInputs() {
             let sc = parseInt(inputScore.value, 10);
-            let mi = parseFloat(inputMins.value);
-
             if (!isNaN(sc) && sc > 0) CONFIG.TARGET_SCORE = sc;
-            if (!isNaN(mi) && mi > 0) CONFIG.TOTAL_MINUTES = mi;
 
             localStorage.setItem('bot_target_score', CONFIG.TARGET_SCORE);
-            localStorage.setItem('bot_total_mins', CONFIG.TOTAL_MINUTES);
-
             hudMaxScore.textContent = CONFIG.TARGET_SCORE;
-            btnJump.textContent = `🚀 Nhảy thẳng tới tầng ${Math.max(1, CONFIG.TARGET_SCORE - 1)}`;
+            hudSubTarget.textContent = Math.max(0, CONFIG.TARGET_SCORE - 1);
+            hudLastFloor.textContent = CONFIG.TARGET_SCORE;
         }
 
         inputScore.oninput = updateConfigFromInputs;
-        inputMins.oninput = updateConfigFromInputs;
 
-        btnJump.onclick = () => {
-            const btnStart = document.querySelector('#btnStart');
-            if (btnStart && !btnStart.disabled && document.querySelector('#ovlStart.on')) {
-                btnStart.click();
-                setTimeout(jumpToFinalFloor, 500);
-            } else {
-                jumpToFinalFloor();
-            }
-        };
+        document.getElementById('preset-1').onclick = () => { inputScore.value = 125; updateConfigFromInputs(); };
+        document.getElementById('preset-2').onclick = () => { inputScore.value = 200; updateConfigFromInputs(); };
+        document.getElementById('preset-3').onclick = () => { inputScore.value = 50; updateConfigFromInputs(); };
 
         btnSubmit.onclick = () => {
             finishAndSubmitScore();
-        };
-
-        btnDropOne.onclick = () => {
-            pressSpace();
         };
 
         btnToggle.onclick = () => {
             isRunning = !isRunning;
             if (isRunning) {
                 if (startTime === 0) startTime = Date.now();
+                isFinishing = false;
+                hudBadge.textContent = 'ĐANG LEO THÁP';
+                hudBadge.style.background = '#10b981';
                 btnToggle.textContent = 'Tạm dừng';
                 btnToggle.style.background = '#ef4444';
+
+                // Tự bấm nút Start của game nếu chưa chơi
                 const btnStart = document.querySelector('#btnStart');
                 if (btnStart && !btnStart.disabled && document.querySelector('#ovlStart.on')) {
                     btnStart.click();
                 }
             } else {
-                btnToggle.textContent = 'Bắt đầu Auto';
+                hudBadge.textContent = 'TẠM DỪNG';
+                hudBadge.style.background = '#64748b';
+                btnToggle.textContent = 'Tiếp tục Turbo';
                 btnToggle.style.background = '#10b981';
             }
         };
@@ -288,41 +264,27 @@
             const elapsed = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
             hudElapsed.textContent = fmtTime(elapsed);
 
-            if (currentScore >= CONFIG.TARGET_SCORE - 1) {
-                hudStatus.innerHTML = `<span style="color:#fbbf24;font-weight:bold;">👑 Đang ở tầng cuối (${currentScore})! Bấm nút đỏ để Thua & Nộp điểm.</span>`;
-            } else {
-                hudStatus.innerHTML = `<span style="color:#38bdf8;">Đang xếp tầng ${currentScore + 1}...</span>`;
+            if (isFinishing) {
+                hudStatus.innerHTML = `<span style="color:#fbbf24;font-weight:bold;">Đang hoàn tất nộp điểm...</span>`;
+            } else if (currentScore >= CONFIG.TARGET_SCORE - 1) {
+                hudStatus.innerHTML = `<span style="color:#fbbf24;font-weight:bold;">👑 Đã chạm tầng ${currentScore}! Tầng cuối đang đung đưa. Bấm nút đỏ để Thua & Nộp điểm.</span>`;
+            } else if (isRunning) {
+                hudStatus.innerHTML = `<span style="color:#38bdf8;font-weight:bold;">⚡ Đang leo tầng ${currentScore + 1}...</span>`;
             }
         }
 
         function botLoop() {
             renderStatus();
-
-            // Nếu đang bật Auto và chưa tới tầng cuối thì tự thả
-            if (isRunning) {
-                const currentScore = getCurrentScore();
-                if (currentScore < CONFIG.TARGET_SCORE - 1) {
-                    if (window.__MINIGAME_CORE__) {
-                        const c = window.__MINIGAME_CORE__.getCur();
-                        const p = window.__MINIGAME_CORE__.getPrev();
-                        if (c && p) {
-                            tryDrop(c.x + c.w / 2, p.x + p.w / 2, p.w);
-                        }
-                    }
-                }
-            }
-
             requestAnimationFrame(botLoop);
         }
 
         requestAnimationFrame(botLoop);
 
         window.AUTO_BOT = {
-            jump: jumpToFinalFloor,
+            start: () => { btnToggle.click(); },
             submit: finishAndSubmitScore,
-            setTarget: (score, minutes) => {
+            setTarget: (score) => {
                 inputScore.value = score;
-                inputMins.value = minutes;
                 updateConfigFromInputs();
             }
         };
