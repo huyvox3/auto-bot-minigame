@@ -77,39 +77,36 @@ Tiện ích mở rộng giúp bạn chơi tự động trên cả **Localhost** 
 
 ## 🤖 4. Hướng Dẫn Sử Dụng Auto Bot
 
-Bảng điều khiển **"⚡ AUTO BOT SPEEDRUN"** sẽ xuất hiện ở góc trên bên phải màn hình khi bạn mở trang minigame.
+Bảng điều khiển **"🛡️ GOD MODE (BẤT TỬ)"** sẽ xuất hiện ở góc trên bên phải màn hình khi bạn mở trang minigame.
 
 ```text
 ┌──────────────────────────────────────────────┐
-│  ⚡ AUTO BOT SPEEDRUN           [ ĐANG CHẠY ]│
+│  🛡️ GOD MODE (BẤT TỬ)          [ BẤT TỬ ON ] │
 ├──────────────────────────────────────────────┤
-│  🎯 Mục tiêu (Tầng):      [ 125 ]            │
-│  ⏱️ Tổng giờ chơi (Phút): [ 30  ]            │
-│  💡 Tầng 1 → 124: Thả tốc độ cao.            │
-│  💡 Tầng 125: Chờ đủ 30 phút mới thả.        │
+│  🎯 Mục tiêu (Tầng):      [ 200 ]            │
+│  ⏱️ Thời gian chơi (Phút):[ 5   ]            │
 ├──────────────────────────────────────────────┤
-│  🍰 Đã xếp: 124 / 125 tầng                   │
-│  ⏳ Thời gian: 02:45 / 30:00                 │
-│  ⚡ Tiến độ: Chờ đủ giờ (Còn 27:15)...       │
+│  [  🚀 Nhảy thẳng tới tầng 199             ] │
+│  [  ☠️ Bấm để THUA & Nộp điểm              ] │
 ├──────────────────────────────────────────────┤
-│  [  Tạm dừng  ]       [ Thả ngay tầng này ]  │
+│  🍰 Đang ở tầng: 199 / 200                   │
+│  ⏳ Thời gian: 04:30                         │
+│  ⚡ Trạng thái: Đang ở tầng cuối!            │
 ├──────────────────────────────────────────────┤
-│  Chọn nhanh:  125đ/30p  |  50đ/10p  |  Test 1p│
+│  [ Bắt đầu Auto ]         [  Thả 1 tầng  ]   │
 └──────────────────────────────────────────────┘
 ```
 
-### Chiến lược vận hành thông minh:
-1. **⚡ Giai đoạn 1 (Tầng 1 → n - 1): Xếp tốc độ cao (Speedrun)**
-   * Mỗi khi bánh di chuyển chạm vạch **Perfect** đầu tiên, bot sẽ lập tức thả bánh mà không cần chờ đợi.
-   * Toàn bộ $n - 1$ tầng đầu tiên (ví dụ 124 tầng) sẽ được dựng lên nhanh chóng chỉ trong vòng ~2 đến 3 phút với tỷ lệ **100% Perfect**.
-2. **⏳ Giai đoạn 2 (Tầng cuối n): Đung đưa chờ đúng tổng giờ chơi**
-   * Khi đến tầng cuối cùng (ví dụ tầng 125), bot sẽ để bánh đung đưa qua lại trên màn hình và bắt đầu đếm ngược thời gian còn lại.
-   * Trạng thái hiển thị: `⏳ Tầng 125: Chờ đủ giờ (Còn mm:ss)...`
-   * Khi đồng hồ chạm mốc thời gian bạn đã đặt (ví dụ: đúng 30 phút), bot sẽ thả tầng cuối với độ chính xác Perfect!
-3. **🎯 Giai đoạn 3: Kết thúc ván và nộp kết quả**
-   * Sau khi tầng $n$ đã khớp hoàn chỉnh, tầng tiếp theo bot sẽ chủ động thả lệch ra ngoài để kết thúc ván chơi hợp lệ, nộp điểm lên hệ thống và mở popup nhận quà.
-4. **🔘 Nút "Thả ngay tầng này":**
-   * Nếu bạn không muốn chờ hết thời gian còn lại, bấm nút này thì bot sẽ thả ngay lập tức tầng đó ở lần chạm Perfect kế tiếp.
+### Các tính năng siêu cấp của God Mode:
+1. **🛡️ Bất tử 100% (Không bao giờ thua):**
+   * Trong suốt quá trình chơi, bánh di chuyển sẽ tự động bắt dính chuẩn xác vị trí **Perfect** với tầng dưới. Bánh luôn nở to cực đại `160px` và **không thể rơi hay lệch ra ngoài**, dù người chơi có bấm nhầm hay bấm bừa.
+2. **🚀 Nhảy thẳng tới tầng cuối trong 0.01 giây:**
+   * Chỉ cần bấm nút **"🚀 Nhảy thẳng tới tầng n - 1"** (ví dụ nếu đặt 200 thì nhảy lên tầng 199), bot sẽ lập tức dựng toàn bộ tháp bánh lên đến đỉnh, camera bay thẳng lên ngọn và đưa tầng 200 vào trạng thái đung đưa!
+   * Bạn không cần phải chờ đợi xếp từng tầng một nữa!
+3. **☠️ Chỉ thua khi người dùng bấm nút:**
+   * Tầng cuối cùng sẽ đung đưa mãi mãi trên màn hình mà không bao giờ tự ý kết thúc.
+   * Bạn có thể thoải mái chờ thời gian chơi tăng lên theo ý muốn (ví dụ 5 phút, 15 phút, 30 phút).
+   * Khi thấy thời gian đã vừa ý, bạn chỉ cần bấm nút đỏ **"☠️ Bấm để THUA & Nộp điểm"**: Bot sẽ lập tức kết thúc ván, gửi điểm số lên máy chủ và mở popup nhận giải thưởng!
 
 ---
 

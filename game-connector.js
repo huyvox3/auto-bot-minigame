@@ -457,7 +457,36 @@
         getPrev: () => blocks[blocks.length - 1],
         getScore: () => score,
         getSpeed: () => speed,
-        getRunning: () => running
+        getRunning: () => running,
+        getBlocks: () => blocks,
+        setGodMode: (val) => { window.__GOD_MODE_ACTIVE__ = !!val; },
+        jumpToFloor: function(targetScore) {
+            if (!running) return;
+            const targetCount = Math.max(1, targetScore - 1);
+            blocks = [];
+            for (let i = 0; i <= targetCount; i++) {
+                blocks.push({
+                    x: W / 2 - BASE_W / 2,
+                    w: BASE_W,
+                    cake: zoneCake(i)
+                });
+            }
+            score = targetCount;
+            if (qs('#hTang')) qs('#hTang').textContent = score;
+            if (score > S.best) {
+                S.best = score;
+                if (qs('#hBest')) qs('#hBest').textContent = S.best;
+                if (qs('#recN')) qs('#recN').textContent = S.best;
+            }
+            cam = Math.max(0, (blocks.length * BH) - H * 0.5);
+            spawn();
+            if (qs('#cv')) draw();
+        },
+        forceFinish: function() {
+            if (!running) return;
+            cur = null;
+            over();
+        }
     };
 
     function baseSpeed() { return SPD0 + Math.floor(score / 10) * ZONE_UP; }
@@ -507,6 +536,10 @@
         lastDrop = now;
 
         const prev = blocks[blocks.length - 1];
+        if (window.__GOD_MODE_ACTIVE__) {
+            cur.x = prev.x;
+            cur.w = prev.w;
+        }
         const dx = cur.x - prev.x, ov = prev.w - Math.abs(dx);
 
         if (ov <= 0) {
